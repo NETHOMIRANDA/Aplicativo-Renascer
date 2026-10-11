@@ -155,7 +155,6 @@ var Nuvem = (function () {
     if (!lerConfig()) { if (cb) cb(false, "Sem endereço de nuvem configurado."); return; }
     if (ocupado) { if (cb) cb(false, "Já existe uma sincronização em andamento."); return; }
     ocupado = true;
-    versaoEmpurrada = Store.versaoLocal();
     ultimoAcao = "enviando";
     avisar();
     fetch(url, {
@@ -168,7 +167,19 @@ var Nuvem = (function () {
       .then(function (j) {
         ocupado = false;
         ultimoAcao = "enviado";
+        /* a ponte so aceita o administrador com a senha certa: sem isso o envio
+           seria descartado em silencio (o painel mostraria os dados, os outros
+           aparelhos nunca receberiam). */
+        if (ehAdmin && j && j.admin === false) {
+          ultimoAcao = "erro";
+          ultimoErro = "A ponte recusou a senha do administrador — o envio não foi aplicado.";
+          avisar();
+          if (cb) cb(false, ultimoErro);
+          return;
+        }
         tratarResposta(j, true);
+        /* so marca como enviado DEPOIS do sucesso: se falhou, o ciclo automatico tenta de novo */
+        versaoEmpurrada = Store.versaoLocal();
         if (cb) cb(true);
       })
       .catch(function (e) {

@@ -1152,7 +1152,12 @@
       txt = "Sincronização: <strong>ativada</strong>" +
         (s.ultimoOk ? " • último contato às <strong>" + hora + "</strong>" : " • aguardando primeiro contato") +
         (s.ocupado ? " • enviando..." : "") +
-        (s.ultimoErro ? ' • <span style="color:#DC2626">erro: ' + esc(s.ultimoErro) + "</span>" : "");
+        (s.ultimoErro
+          ? ' • <span style="color:#DC2626">erro: ' + esc(s.ultimoErro) + "</span>" +
+            (String(s.ultimoErro).indexOf("recusou") !== -1
+              ? '<br><span style="color:#B45309">A senha do painel não confere com a senha aceita pela ponte — clique em <strong>🔐 Testar senha</strong> abaixo e use a senha certa (a padrão é <strong>A103114</strong>).</span>'
+              : "")
+          : "");
     }
     if (extra) txt += "<br>" + esc(extra);
     el.innerHTML = txt;
@@ -1418,6 +1423,16 @@
       mostrarStatusNuvem("Testando...");
       Nuvem.testar(function (ok, msg) { mostrarStatusNuvem(msg); });
     });
+    $("btnNuvemSenha").addEventListener("click", function () {
+      var senha = $("cSenha").value;
+      if (!senha) { toast("Digite a senha do administrador primeiro."); $("cSenha").focus(); return; }
+      mostrarStatusNuvem("Verificando a senha na ponte...");
+      Nuvem.verificarSenha(senha, function (ok) {
+        mostrarStatusNuvem(ok
+          ? "Senha aceita pela ponte ✅ — os envios deste painel serão aplicados."
+          : "A ponte NÃO aceitou esta senha ❌ — use a senha cadastrada na nuvem (a padrão é A103114). Sem a senha certa, nada é enviado do computador para o celular.");
+      });
+    });
     $("btnNuvemAgora").addEventListener("click", function () {
       Store.salvarConfig({ nuvemUrl: $("cNuvemUrl").value.trim(), nuvemAuto: $("cNuvemAuto").checked });
       Nuvem.recarregar();
@@ -1491,6 +1506,15 @@
     mostrarApp();
     Nuvem.iniciar();
     mostrarStatusNuvem();
+    /* confere a senha do painel na ponte: sem a senha certa, nada enviado aqui
+       chega no celular (a ponte descarta o envio em silencio) */
+    try {
+      Nuvem.verificarSenha(Store.config().senhaAdmin, function (ok) {
+        mostrarStatusNuvem(ok
+          ? ""
+          : "⚠ A ponte não aceitou a senha deste painel — os envios estão sendo recusados. Clique em 🔐 Testar senha e use a senha certa (a padrão é A103114).");
+      });
+    } catch (e) {}
   }
 
   if (document.readyState === "loading") {
