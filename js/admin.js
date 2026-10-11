@@ -816,7 +816,14 @@
 
     var corpo = '<p class="suave">1) Toque nas fotos para marcar/desmarcar. 2) Dê o <strong>nome/cor</strong> de cada variante — o cliente escolhe a foto e a cor já chega no pedido.</p>' +
       "<h4>Marcar fotos</h4>" + galeriaHtml() +
-      "<h4>Escolhidas — nome/cor</h4>" + escolhidasHtml();
+      "<h4>Escolhidas — nome/cor</h4>" + escolhidasHtml() +
+      "<h4>Adicionar por URL</h4>" +
+      '<div class="linha-url">' +
+        '<input type="url" id="urlFotoExtra" placeholder="https://exemplo.com/foto.jpg" autocomplete="off" class="campo-url">' +
+        '<button type="button" class="claro" id="btnUrlFotoExtra">Adicionar URL</button>' +
+        '<span id="urlFotoExtraStatus" class="status-url"></span>' +
+      "</div>" +
+      '<p class="suave">A URL é testada na hora e vira mais uma variante deste item.</p>';
 
     function handlerExtras(ev) {
       var fig = ev.target.closest ? ev.target.closest("figure") : null;
@@ -838,6 +845,33 @@
       }
     }
     $("modalCorpo").addEventListener("click", handlerExtras);
+
+    /* campo de URL dentro do modal de fotos extras */
+    var $uIn = $("urlFotoExtra"), $uSt = $("urlFotoExtraStatus");
+    if ($uIn) {
+      function statusExtra(txt, tipo) { statusUrlFoto($uSt, txt, tipo); }
+      $uIn.addEventListener("input", function () {
+        var u = this.value.trim();
+        if (!u) { statusExtra("", ""); return; }
+        if (!urlFotoFormatoOk(u)) { statusExtra("❌ Endereço inválido (comece com http:// ou https://)", "erro"); return; }
+        statusExtra("⏳ Testando...", "");
+        testarUrlFoto(u, function (ok) { statusExtra(ok ? "✅ URL válida" : "❌ A imagem não carregou", ok ? "ok" : "erro"); });
+      });
+      $("btnUrlFotoExtra").addEventListener("click", function () {
+        var u = $uIn.value.trim();
+        if (!urlFotoFormatoOk(u)) { statusExtra("❌ Endereço inválido", "erro"); return; }
+        statusExtra("⏳ Testando...", "");
+        testarUrlFoto(u, function (ok) {
+          if (!ok) { statusExtra("❌ A imagem não carregou", "erro"); return; }
+          coletarCores();
+          var tem = escolhidas.some(function (e) { return String(e.foto) === u; });
+          if (!tem) escolhidas.push({ foto: u, cor: "" });
+          $uIn.value = "";
+          statusExtra("✅ Variante adicionada", "ok");
+          refresh();
+        });
+      });
+    }
 
     function encerrar() {
       $("modalCorpo").removeEventListener("click", handlerExtras);
@@ -870,13 +904,20 @@
     var i = Store.item(id);
     if (!i) return;
     var galeria = Store.fotos();
-    if (!galeria.length) {
-      toast("Nenhuma foto na galeria. Envie em 🖼️ Fotos.");
-      return;
-    }
-    var corpo = '<div class="galeria" id="galeriaEscolha">' + galeria.map(function (g) {
-      return '<figure data-f="' + esc(g) + '"><img src="' + esc(fotoUrl(g)) + '" alt=""><figcaption>escolher</figcaption></figure>';
-    }).join("") + "</div>";
+    var corpo =
+      "<h4>Endereço (URL) da foto</h4>" +
+      '<div class="linha-url">' +
+        '<input type="url" id="urlFotoItem" placeholder="https://exemplo.com/foto.jpg" autocomplete="off" class="campo-url">' +
+        '<button type="button" class="claro" id="btnUrlFotoItem">Usar esta URL</button>' +
+        '<span id="urlFotoItemStatus" class="status-url"></span>' +
+      "</div>" +
+      '<p class="suave">A URL é testada na hora: só entra se a imagem realmente carregar.</p>' +
+      (galeria.length
+        ? "<h4>Ou escolher da galeria</h4>" +
+          '<div class="galeria" id="galeriaEscolha">' + galeria.map(function (g) {
+            return '<figure data-f="' + esc(g) + '"><img src="' + esc(fotoUrl(g)) + '" alt=""><figcaption>escolher</figcaption></figure>';
+          }).join("") + "</div>"
+        : '<p class="suave">Nenhuma foto na galeria — use a URL acima ou envie em 🖼️ Fotos.</p>');
     abrirModal("Escolher foto • " + i.nome, corpo, [
       { texto: "Remover foto do item", classe: "secundario grande", acao: function () {
         i.foto = "";
@@ -887,7 +928,31 @@
       } },
       { texto: "Fechar", classe: "secundario grande", acao: fecharModal }
     ]);
-    Array.prototype.forEach.call($("galeriaEscolha").querySelectorAll("figure"), function (fig) {
+
+    var $in = $("urlFotoItem"), $st = $("urlFotoItemStatus");
+    function status(txt, tipo) { statusUrlFoto($st, txt, tipo); }
+    $in.addEventListener("input", function () {
+      var u = this.value.trim();
+      if (!u) { status("", ""); return; }
+      if (!urlFotoFormatoOk(u)) { status("❌ Endereço inválido (comece com http:// ou https://)", "erro"); return; }
+      status("⏳ Testando...", "");
+      testarUrlFoto(u, function (ok) { status(ok ? "✅ URL válida" : "❌ A imagem não carregou", ok ? "ok" : "erro"); });
+    });
+    $("btnUrlFotoItem").addEventListener("click", function () {
+      var u = $in.value.trim();
+      if (!urlFotoFormatoOk(u)) { status("❌ Endereço inválido", "erro"); return; }
+      status("⏳ Testando...", "");
+      testarUrlFoto(u, function (ok) {
+        if (!ok) { status("❌ A imagem não carregou", "erro"); return; }
+        i.foto = u;
+        Store.salvarItem(i);
+        fecharModal();
+        renderItensAdmin();
+        toast("Foto definida pela URL ✅");
+      });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll("#galeriaEscolha figure"), function (fig) {
       fig.addEventListener("click", function () {
         i.foto = fig.getAttribute("data-f");
         Store.salvarItem(i);
@@ -943,6 +1008,28 @@
   }
 
   /* ---------------- FOTOS ---------------- */
+
+  /* ---------- URL de foto: validacao imediata ---------- */
+  function urlFotoFormatoOk(u) {
+    return /^https?:\/\/[^\s]+$/i.test(String(u || "").trim());
+  }
+
+  function statusUrlFoto(el, txt, tipo) {
+    if (!el) return;
+    el.textContent = txt || "";
+    el.className = "status-url" + (tipo ? " " + tipo : "");
+  }
+
+  /* carrega a imagem de verdade: se abrir, a URL vale */
+  function testarUrlFoto(u, cb) {
+    var im = new Image();
+    var fim = false;
+    var t = setTimeout(function () { if (!fim) { fim = true; cb(false); } }, 8000);
+    im.onload = function () { if (!fim) { fim = true; clearTimeout(t); cb(true); } };
+    im.onerror = function () { if (!fim) { fim = true; clearTimeout(t); cb(false); } };
+    im.src = u;
+  }
+
   function renderGaleria() {
     var el = $("galeriaFotos");
     var lista = Store.fotos();
@@ -951,10 +1038,14 @@
       return;
     }
     el.innerHTML = lista.map(function (f) {
+      var url = String(f);
+      var ehUrl = /^https?:/i.test(url);
+      var rotulo = ehUrl ? url : (url.indexOf("data:") === 0 ? "(enviada pelo aparelho)" : url);
       return "<figure>" +
         '<img src="' + esc(fotoUrl(f)) + '" alt="" onerror="this.src=\'img/icon-192.png\'">' +
         '<button class="excluir" data-f="' + esc(f) + '">✕</button>' +
-        "<figcaption>" + esc(String(f).slice(0, 26)) + (String(f).indexOf("data:") === 0 ? " (enviada)" : "") + "</figcaption>" +
+        (ehUrl ? '<a class="minha-url" href="' + esc(url) + '" target="_blank" rel="noopener" title="' + esc(url) + '">🔗 ' + esc(rotulo) + "</a>"
+               : "<figcaption>" + esc(String(f).slice(0, 26)) + " " + esc(rotulo) + "</figcaption>") +
         "</figure>";
     }).join("");
     Array.prototype.forEach.call(el.querySelectorAll(".excluir"), function (b) {
@@ -1196,6 +1287,49 @@
       this.value = "";
     });
 
+    /* galeria: adicionar foto por URL, com validacao imediata (a imagem e carregada de verdade) */
+    var timerUrlGaleria = null;
+    if ($("urlFoto")) {
+      $("urlFoto").addEventListener("input", function () {
+        var u = this.value.trim();
+        clearTimeout(timerUrlGaleria);
+        if (!u) { statusUrlFoto($("urlFotoStatus"), "", ""); return; }
+        if (!urlFotoFormatoOk(u)) {
+          statusUrlFoto($("urlFotoStatus"), "❌ Endereço inválido — comece com http:// ou https://", "erro");
+          return;
+        }
+        statusUrlFoto($("urlFotoStatus"), "⏳ Testando a imagem...", "");
+        timerUrlGaleria = setTimeout(function () {
+          testarUrlFoto(u, function (ok) {
+            statusUrlFoto($("urlFotoStatus"),
+              ok ? "✅ URL válida — imagem carregou, pronta para adicionar." : "❌ A imagem não carregou — confira o link.",
+              ok ? "ok" : "erro");
+          });
+        }, 400);
+      });
+    }
+    $("btnAddFotoUrl").addEventListener("click", function () {
+      var u = ($("urlFoto").value || "").trim();
+      if (!urlFotoFormatoOk(u)) {
+        statusUrlFoto($("urlFotoStatus"), "❌ Endereço inválido — comece com http:// ou https://", "erro");
+        toast("URL inválida ❌");
+        return;
+      }
+      statusUrlFoto($("urlFotoStatus"), "⏳ Testando a imagem...", "");
+      testarUrlFoto(u, function (ok) {
+        if (!ok) {
+          statusUrlFoto($("urlFotoStatus"), "❌ A imagem não carregou — confira o link.", "erro");
+          toast("A imagem não carregou ❌");
+          return;
+        }
+        Store.addFoto(u);
+        $("urlFoto").value = "";
+        statusUrlFoto($("urlFotoStatus"), "", "");
+        renderGaleria();
+        toast("Foto adicionada pela URL ✅");
+      });
+    });
+
     $("btnSalvarAjustes").addEventListener("click", salvarAjustes);
 
     $("btnNuvemTestar").addEventListener("click", function () {
@@ -1233,6 +1367,12 @@
       ]);
     });
 
+    $("btnCompletarFotos").addEventListener("click", function () {
+      var n = Store.completarFotos ? Store.completarFotos() : 0;
+      renderItensAdmin();
+      toast(n ? ("🩹 " + n + " foto(s) vinculada(s) ao item") : "Nenhuma foto faltante 🎉");
+    });
+
     $("btnLimparTudo").addEventListener("click", function () {
       abrirModal("Apagar TODOS os dados",
         "<p><strong>Isso apaga itens, fotos, pedidos e ajustes deste aparelho.</strong></p><p>Faça um backup antes se quiser manter os dados.</p>",
@@ -1265,6 +1405,8 @@
   }
 
   function iniciarTudo() {
+    /* reparo pontual: cria a URL da foto onde o campo ficou vazio (não troca foto existente) */
+    if (Store.completarFotosUmaVez) { try { Store.completarFotosUmaVez(); } catch (e) {} }
     ligarEventos();
     mostrarApp();
     Nuvem.iniciar();

@@ -430,6 +430,51 @@ var Store = (function () {
     return mudou;
   }
 
+  /* ---------- REPARO: criar URL de foto onde falta (só preenche vazios) ----------
+     Usado quando a foto do item ficou sem endereço (ex.: foto anexada/colada
+     some na sincronização). Regra: NUNCA sobrescreve uma foto que já existe —
+     só preenche o campo vazio, com o arquivo recuperado (FOTOS_ITENS) ou, na
+     falta, a foto que o catálogo original (CATALOGO_SEED) guarda para o item. */
+  var REPARO_KEY = "renascer.reparoFotos.v1";
+
+  function completarFotos() {
+    var d = ler();
+    var seed = (typeof CATALOGO_SEED !== "undefined") ? CATALOGO_SEED : [];
+    var mapa = (typeof FOTOS_ITENS !== "undefined") ? FOTOS_ITENS : {};
+    var agora = new Date().toISOString();
+    var corrigidos = 0;
+    (d.itens || []).forEach(function (it) {
+      if (!it) return;
+      var mudouItem = false;
+      var id = String(it.id);
+      var doMapa = mapa[id];
+      if (!it.foto) {
+        var nova = doMapa ? String(doMapa[0] || "") : "";
+        if (!nova) {
+          for (var i = 0; i < seed.length; i++) {
+            if (String(seed[i].id) === id && seed[i].foto) { nova = String(seed[i].foto); break; }
+          }
+        }
+        if (nova && nova !== it.foto) { it.foto = nova; mudouItem = true; }
+      }
+      /* variantes (fotos extras) também só entram se o item não tiver nenhuma */
+      if (doMapa && doMapa.length > 1 && (!it.fotos || !it.fotos.length)) {
+        it.fotos = doMapa.map(function (f) { return { foto: f, cor: "" }; });
+        mudouItem = true;
+      }
+      if (mudouItem) { it.atualizadoEm = agora; corrigidos++; }
+    });
+    if (corrigidos) salvar();
+    return corrigidos;
+  }
+
+  function completarFotosUmaVez() {
+    try { if (localStorage.getItem(REPARO_KEY)) return 0; } catch (e) {}
+    var n = completarFotos();
+    try { localStorage.setItem(REPARO_KEY, "1"); } catch (e) {}
+    return n;
+  }
+
   /* ---------- BACKUP ---------- */
   function exportar() {
     return JSON.stringify(ler(), null, 2);
@@ -488,6 +533,8 @@ var Store = (function () {
     usoBytes: usoBytes,
     estadoSync: estadoSync,
     aplicarRemoto: aplicarRemoto,
+    completarFotos: completarFotos,
+    completarFotosUmaVez: completarFotosUmaVez,
     versaoLocal: function () { return versao; },
     onChange: function (cb) { ouvintes.push(cb); }
   };

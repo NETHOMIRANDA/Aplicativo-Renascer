@@ -1376,6 +1376,8 @@
 
   /* ---------------- inicializacao ---------------- */
   function iniciar() {
+    /* reparo pontual: cria a URL da foto onde o campo ficou vazio (não troca foto existente) */
+    if (Store.completarFotosUmaVez) { try { Store.completarFotosUmaVez(); } catch (e) {} }
     rodape();
     renderChips();
     renderItens();

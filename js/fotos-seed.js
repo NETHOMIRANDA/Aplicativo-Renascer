@@ -24,7 +24,21 @@ var FOTOS_SEED = {
     "foto-21.jpg",
     "foto-22.jpg",
     "foto-23.jpg",
-    "foto-24.jpg"
+    "foto-24.jpg",
+    "foto-pc-054.jpg",
+    "foto-pc-055.jpg",
+    "foto-pc-056.jpg",
+    "foto-pc-057.jpg",
+    "foto-pc-058.jpg",
+    "foto-pc-059.jpg",
+    "foto-pc-060.jpg",
+    "foto-pc-061.jpg",
+    "foto-pc-062.jpg",
+    "foto-pc-063.jpg",
+    "foto-pc-064.jpg",
+    "foto-pc-065.jpg",
+    "foto-pc-066.jpg",
+    "foto-pc-067.jpg"
   ],
   "origem": [
     "11410525_741556355971380_1408033998_a.jpg",

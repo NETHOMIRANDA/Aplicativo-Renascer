@@ -146,9 +146,16 @@
       <div class="bloco">
         <h2>Galeria de fotos</h2>
         <p class="suave">Adicione fotos dos itens. Elas ficam disponíveis para você escolher ao editar cada item.</p>
-        <label class="campo">Enviar nova foto
+        <label class="campo">Enviar nova foto (do aparelho)
           <input type="file" id="addFoto" accept="image/*" multiple>
         </label>
+        <label class="campo">Adicionar por URL (link direto da imagem)
+          <input type="url" id="urlFoto" placeholder="https://exemplo.com/foto.jpg" autocomplete="off">
+        </label>
+        <div class="linha-url">
+          <button class="claro" id="btnAddFotoUrl" type="button">🔗 Adicionar foto da URL</button>
+          <span id="urlFotoStatus" class="status-url"></span>
+        </div>
         <div class="galeria" id="galeriaFotos"></div>
       </div>
     </section>
@@ -252,6 +259,7 @@
         <h2>Manutenção</h2>
         <div class="botoes-linha">
           <button class="claro" id="btnRestaurarCatalogo">♻️ Restaurar catálogo original</button>
+          <button class="claro" id="btnCompletarFotos">🩹 Completar fotos ausentes</button>
           <button class="perigo" id="btnLimparTudo">🗑️ Apagar TODOS os dados</button>
         </div>
       </div>
@@ -288,6 +296,7 @@
 
 <script src="js/catalogo-seed.js"></script>
 <script src="js/fotos-seed.js"></script>
+<script src="js/fotos-itens.js"></script>
 <script src="js/config.js"></script>
 <script src="js/store.js"></script>
 <script src="js/sync.js"></script>
