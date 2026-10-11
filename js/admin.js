@@ -723,12 +723,18 @@
         '<label class="campo">Estoque<input type="number" id="eEstq" step="1" value="' + (Number(i.estoque) || 0) + '"></label>' +
         '<label class="campo">Foto<input type="file" id="eFoto" accept="image/*"></label>' +
       "</div>" +
+      '<div class="linha-url">' +
+        '<label class="campo campo-url">Foto por URL (link direto — aparece em todos os aparelhos)' +
+          '<input type="url" id="eFotoUrl" placeholder="https://exemplo.com/foto.jpg" autocomplete="off" value="' + esc(/^https?:/i.test(String(i.foto || "")) ? i.foto : "") + '">' +
+        '</label>' +
+        '<span id="eFotoUrlStatus" class="status-url"></span>' +
+      '</div>' +
       '<div id="ePreview" style="text-align:center;">' +
         (i.foto ? '<img src="' + esc(fotoUrl(i.foto)) + '" style="max-height:130px;border-radius:12px;" alt="">' : '<p class="suave">Sem foto</p>') +
       "</div>" +
       (galeria.length ? '<label class="campo">Ou escolha uma foto da galeria<select id="eGaleria">' +
         '<option value="">— manter atual —</option>' +
-        galeria.map(function (g) { return '<option value="' + esc(g) + '">' + esc(String(g).slice(0, 40)) + "</option>"; }).join("") +
+        galeria.map(function (g) { return '<option value="' + esc(g) + '">' + esc(String(g).slice(0, 40)) + (/^data:/i.test(String(g)) ? " (colada — não sincroniza)" : "") + "</option>"; }).join("") +
         "</select></label>" : "") +
       '<div class="campo">Fotos extras (variantes)<br><button type="button" class="secundario grande" id="eFotosExtras">🖼️ Escolher fotos' + ((i.fotos || []).length ? " (" + i.fotos.length + ")" : "") + "</button>" +
       ((i.fotos || []).length ? '<div class="mini-fotos-admin">' + i.fotos.map(function (f) {
@@ -740,23 +746,41 @@
 
     abrirModal("Editar item", corpo, [
       { texto: "💾 Salvar alterações", acao: function () {
-        i.nome = $("eNome").value.trim() || i.nome;
-        i.categoria = $("eCat").value.trim() || i.categoria;
-        i.unidade = $("eUnid").value.trim() || i.unidade;
-        i.preco = parseFloat($("ePreco").value) || 0;
-        i.estoque = parseInt($("eEstq").value, 10) || 0;
-        if (fotoPendenteEdicao !== undefined && fotoPendenteEdicao !== null && $("ePreview").getAttribute("data-nova") === "1") {
-          i.foto = fotoPendenteEdicao;
+        var urlNova = ($("eFotoUrl") ? $("eFotoUrl").value.trim() : "");
+        if (urlNova && !urlFotoFormatoOk(urlNova)) { toast("URL da foto inválida ❌"); $("eFotoUrl").focus(); return; }
+        if (urlNova && !urlValidaCache[urlNova]) {
+          statusUrlFoto($("eFotoUrlStatus"), "⏳ Testando...", "");
+          testarUrlFoto(urlNova, function (ok) {
+            if (!ok) { statusUrlFoto($("eFotoUrlStatus"), "❌ A imagem não carregou", "erro"); toast("A imagem não carregou ❌"); return; }
+            urlValidaCache[urlNova] = true;
+            gravarEdicao(urlNova);
+          });
+          return;
         }
-        var sel = $("eGaleria");
-        if (sel && sel.value) i.foto = sel.value;
-        Store.salvarItem(i);
-        fecharModal();
-        renderItensAdmin();
-        toast("Item atualizado ✅");
+        gravarEdicao(urlNova);
       } },
       { texto: "Cancelar", classe: "secundario grande", acao: fecharModal }
     ]);
+
+    function gravarEdicao(urlNova) {
+      i.nome = $("eNome").value.trim() || i.nome;
+      i.categoria = $("eCat").value.trim() || i.categoria;
+      i.unidade = $("eUnid").value.trim() || i.unidade;
+      i.preco = parseFloat($("ePreco").value) || 0;
+      i.estoque = parseInt($("eEstq").value, 10) || 0;
+      if (fotoPendenteEdicao !== undefined && fotoPendenteEdicao !== null && $("ePreview").getAttribute("data-nova") === "1") {
+        i.foto = fotoPendenteEdicao;
+      }
+      var sel = $("eGaleria");
+      if (sel && sel.value) i.foto = sel.value;
+      if (urlNova) i.foto = urlNova;
+      var colada = /^data:/i.test(String(i.foto || ""));
+      Store.salvarItem(i);
+      fecharModal();
+      renderItensAdmin();
+      if (colada) toast("Salvo, mas foto colada não aparece nos outros aparelhos ⚠️");
+      else toast("Item atualizado ✅");
+    }
 
     $("eFoto").addEventListener("change", function () {
       if (!this.files || !this.files[0]) return;
@@ -766,6 +790,23 @@
         $("ePreview").innerHTML = '<img src="' + dataUrl + '" style="max-height:130px;border-radius:12px;" alt="">';
       });
     });
+    if ($("eFotoUrl")) {
+      var timerEUrl = null;
+      $("eFotoUrl").addEventListener("input", function () {
+        var u = this.value.trim();
+        clearTimeout(timerEUrl);
+        if (!u) { statusUrlFoto($("eFotoUrlStatus"), "", ""); return; }
+        if (!urlFotoFormatoOk(u)) { statusUrlFoto($("eFotoUrlStatus"), "❌ Endereço inválido (comece com http:// ou https://)", "erro"); return; }
+        if (urlValidaCache[u]) { statusUrlFoto($("eFotoUrlStatus"), "✅ URL válida", "ok"); return; }
+        statusUrlFoto($("eFotoUrlStatus"), "⏳ Testando...", "");
+        timerEUrl = setTimeout(function () {
+          testarUrlFoto(u, function (ok) {
+            if (ok) urlValidaCache[u] = true;
+            statusUrlFoto($("eFotoUrlStatus"), ok ? "✅ URL válida — imagem carregou" : "❌ A imagem não carregou — confira o link.", ok ? "ok" : "erro");
+          });
+        }, 400);
+      });
+    }
     $("eFotosExtras").addEventListener("click", function () { escolherFotosExtras(id); });
   }
 
@@ -915,7 +956,11 @@
       (galeria.length
         ? "<h4>Ou escolher da galeria</h4>" +
           '<div class="galeria" id="galeriaEscolha">' + galeria.map(function (g) {
-            return '<figure data-f="' + esc(g) + '"><img src="' + esc(fotoUrl(g)) + '" alt=""><figcaption>escolher</figcaption></figure>';
+            var colada = /^data:/i.test(String(g));
+            return '<figure data-f="' + esc(g) + '"' + (colada ? ' class="colada" title="Foto colada: não aparece nos outros aparelhos"' : "") + '>' +
+              '<img src="' + esc(fotoUrl(g)) + '" alt="">' +
+              (colada ? '<figcaption>⚠ colada</figcaption>' : "<figcaption>escolher</figcaption>") +
+              "</figure>";
           }).join("") + "</div>"
         : '<p class="suave">Nenhuma foto na galeria — use a URL acima ou envie em 🖼️ Fotos.</p>');
     abrirModal("Escolher foto • " + i.nome, corpo, [
@@ -954,7 +999,12 @@
 
     Array.prototype.forEach.call(document.querySelectorAll("#galeriaEscolha figure"), function (fig) {
       fig.addEventListener("click", function () {
-        i.foto = fig.getAttribute("data-f");
+        var f = fig.getAttribute("data-f") || "";
+        if (/^data:/i.test(f)) {
+          toast("Foto colada não aparece nos outros aparelhos ⚠️ use a URL");
+          return;
+        }
+        i.foto = f;
         Store.salvarItem(i);
         fecharModal();
         renderItensAdmin();
@@ -989,27 +1039,38 @@
   function addItem() {
     var nome = $("nNome").value.trim();
     if (!nome) { toast("Informe o nome do item."); $("nNome").focus(); return; }
+    var urlFoto = ($("nFotoUrl") ? $("nFotoUrl").value.trim() : "");
+    if (urlFoto && !urlFotoFormatoOk(urlFoto)) {
+      toast("URL da foto inválida ❌");
+      $("nFotoUrl").focus();
+      return;
+    }
     var item = {
       categoria: $("nCategoria").value.trim() || "OUTROS",
       nome: nome,
       unidade: $("nUnidade").value.trim() || "Unidade",
       preco: parseFloat($("nPreco").value) || 0,
       estoque: parseInt($("nEstoque").value, 10) || 0,
-      foto: fotoPendenteNovo,
+      foto: urlFoto || fotoPendenteNovo,
       ativo: true
     };
+    var avisoColada = !urlFoto && !!fotoPendenteNovo && /^data:/i.test(fotoPendenteNovo);
     Store.salvarItem(item);
     $("nNome").value = ""; $("nPreco").value = ""; $("nEstoque").value = "1"; $("nUnidade").value = "";
     $("nFoto").value = "";
+    if ($("nFotoUrl")) { $("nFotoUrl").value = ""; statusUrlFoto($("nFotoUrlStatus"), "", ""); }
     fotoPendenteNovo = "";
     $("nFotoPreview").innerHTML = "";
     renderItensAdmin();
-    toast("Item adicionado ✅");
+    if (avisoColada) toast("Item criado, mas foto colada só aparece neste aparelho — use URL para o celular ver ⚠️");
+    else toast("Item adicionado ✅");
   }
 
   /* ---------------- FOTOS ---------------- */
 
   /* ---------- URL de foto: validacao imediata ---------- */
+  var urlValidaCache = {}; /* urls ja testadas nesta sessao (nao testa de novo) */
+
   function urlFotoFormatoOk(u) {
     return /^https?:\/\/[^\s]+$/i.test(String(u || "").trim());
   }
@@ -1269,6 +1330,25 @@
         $("nFotoPreview").innerHTML = '<img src="' + dataUrl + '" style="max-height:130px;border-radius:12px;margin:8px auto;" alt="">';
       });
     });
+
+    /* Novo item: validacao imediata da URL da foto */
+    if ($("nFotoUrl")) {
+      var timerNUrl = null;
+      $("nFotoUrl").addEventListener("input", function () {
+        var u = this.value.trim();
+        clearTimeout(timerNUrl);
+        if (!u) { statusUrlFoto($("nFotoUrlStatus"), "", ""); return; }
+        if (!urlFotoFormatoOk(u)) { statusUrlFoto($("nFotoUrlStatus"), "❌ Endereço inválido (comece com http:// ou https://)", "erro"); return; }
+        if (urlValidaCache[u]) { statusUrlFoto($("nFotoUrlStatus"), "✅ URL válida", "ok"); return; }
+        statusUrlFoto($("nFotoUrlStatus"), "⏳ Testando...", "");
+        timerNUrl = setTimeout(function () {
+          testarUrlFoto(u, function (ok) {
+            if (ok) urlValidaCache[u] = true;
+            statusUrlFoto($("nFotoUrlStatus"), ok ? "✅ URL válida — imagem carregou" : "❌ A imagem não carregou — confira o link.", ok ? "ok" : "erro");
+          });
+        }, 400);
+      });
+    }
 
     $("addFoto").addEventListener("change", function () {
       var arquivos = this.files;

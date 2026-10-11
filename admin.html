@@ -128,6 +128,13 @@
             <input type="file" id="nFoto" accept="image/*">
           </label>
         </div>
+        <div class="linha-url">
+          <label class="campo campo-url">Foto por URL (link direto — recomendado: aparece no celular também)
+            <input type="url" id="nFotoUrl" placeholder="https://exemplo.com/foto.jpg" autocomplete="off">
+          </label>
+          <span id="nFotoUrlStatus" class="status-url"></span>
+        </div>
+        <p class="suave" style="margin-top:6px;">A URL é testada na hora. Arquivo do aparelho também funciona, mas fica salvo só neste computador.</p>
         <div id="nFotoPreview"></div>
         <button class="primario" id="btnAddItem">➕ Adicionar item</button>
       </div>

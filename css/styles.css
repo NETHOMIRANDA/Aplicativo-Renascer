@@ -2384,3 +2384,5 @@ canvas.qr {
   text-decoration: none; word-break: break-all;
 }
 .galeria .minha-url:hover { text-decoration: underline; }
+.galeria figure.colada { opacity: .55; }
+.galeria figure.colada figcaption { color: var(--aviso-escuro, #B45309); font-weight: 600; }
