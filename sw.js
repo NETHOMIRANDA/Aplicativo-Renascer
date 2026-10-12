@@ -1,5 +1,5 @@
 /* sw.js - funciona offline (PWA) */
-var CACHE = "renascer-v20";
+var CACHE = "renascer-v21";
 
 var ARQUIVOS = [
   "./",
@@ -10,6 +10,7 @@ var ARQUIVOS = [
   "./js/config.js",
   "./js/catalogo-seed.js",
   "./js/fotos-seed.js",
+  "./js/fotos-itens.js",
   "./js/store.js",
   "./js/sync.js",
   "./js/pix.js",
