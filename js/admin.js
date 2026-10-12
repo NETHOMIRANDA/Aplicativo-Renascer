@@ -1506,6 +1506,15 @@
     mostrarApp();
     Nuvem.iniciar();
     mostrarStatusNuvem();
+    /* aviso se o catálogo ficou sem fotos (ex.: restauração de backup antigo) */
+    try {
+      var semFoto = Store.itens().filter(function (i) { return !i.foto; }).length;
+      if (semFoto > 0) {
+        setTimeout(function () {
+          toast(semFoto + " item(ns) sem foto — use 💾 Backup → 🩹 Completar fotos ausentes ⚠️", 6000);
+        }, 1400);
+      }
+    } catch (e) {}
     /* confere a senha do painel na ponte: sem a senha certa, nada enviado aqui
        chega no celular (a ponte descarta o envio em silencio) */
     try {

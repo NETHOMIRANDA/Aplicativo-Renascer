@@ -468,11 +468,11 @@ var Store = (function () {
     return corrigidos;
   }
 
+  /* roda a cada abertura: só preenche fotos vazias, então é seguro e
+     conserta sozinho qualquer perda de foto (item fica com URL novamente) */
   function completarFotosUmaVez() {
-    try { if (localStorage.getItem(REPARO_KEY)) return 0; } catch (e) {}
-    var n = completarFotos();
     try { localStorage.setItem(REPARO_KEY, "1"); } catch (e) {}
-    return n;
+    return completarFotos();
   }
 
   /* ---------- BACKUP ---------- */
