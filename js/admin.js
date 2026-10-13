@@ -779,7 +779,7 @@
       fecharModal();
       renderItensAdmin();
       if (colada) toast("Salvo, mas foto colada não aparece nos outros aparelhos ⚠️");
-      else toast("Item atualizado ✅");
+      else sincronizarFoto("Item atualizado");
     }
 
     $("eFoto").addEventListener("change", function () {
@@ -969,7 +969,7 @@
         Store.salvarItem(i);
         fecharModal();
         renderItensAdmin();
-        toast("Foto removida.");
+        sincronizarFoto("Foto removida");
       } },
       { texto: "Fechar", classe: "secundario grande", acao: fecharModal }
     ]);
@@ -993,7 +993,7 @@
         Store.salvarItem(i);
         fecharModal();
         renderItensAdmin();
-        toast("Foto definida pela URL ✅");
+        sincronizarFoto("Foto definida pela URL");
       });
     });
 
@@ -1008,7 +1008,7 @@
         Store.salvarItem(i);
         fecharModal();
         renderItensAdmin();
-        toast("Foto definida ✅");
+        sincronizarFoto("Foto definida");
       });
     });
   }
@@ -1063,7 +1063,7 @@
     $("nFotoPreview").innerHTML = "";
     renderItensAdmin();
     if (avisoColada) toast("Item criado, mas foto colada só aparece neste aparelho — use URL para o celular ver ⚠️");
-    else toast("Item adicionado ✅");
+    else sincronizarFoto("Item adicionado");
   }
 
   /* ---------------- FOTOS ---------------- */
@@ -1089,6 +1089,15 @@
     im.onload = function () { if (!fim) { fim = true; clearTimeout(t); cb(true); } };
     im.onerror = function () { if (!fim) { fim = true; clearTimeout(t); cb(false); } };
     im.src = u;
+  }
+
+  /* ---------- sincronização imediata após mexer na foto ---------- */
+  function sincronizarFoto(msg) {
+    if (!Nuvem || !Nuvem.pendente || !Nuvem.pendente()) { toast(msg + " ✅"); return; }
+    toast(msg + " — enviando para a nuvem…");
+    Nuvem.sincronizarAgora(function (ok, erro) {
+      toast(ok ? (msg + " ✅ sincronizado") : (msg + " salvo local — " + erro));
+    });
   }
 
   function renderGaleria() {
@@ -1365,7 +1374,7 @@
           restantes--;
           if (restantes === 0) {
             renderGaleria();
-            toast(arquivos.length + " foto(s) adicionada(s) ✅");
+            sincronizarFoto(arquivos.length + " foto(s) adicionada(s)");
           }
         });
       });
@@ -1411,7 +1420,7 @@
         $("urlFoto").value = "";
         statusUrlFoto($("urlFotoStatus"), "", "");
         renderGaleria();
-        toast("Foto adicionada pela URL ✅");
+        sincronizarFoto("Foto adicionada pela URL");
       });
     });
 
@@ -1524,6 +1533,15 @@
           : "⚠ A ponte não aceitou a senha deste painel — os envios estão sendo recusados. Clique em 🔐 Testar senha e use a senha certa (a padrão é A103114).");
       });
     } catch (e) {}
+
+    /* aviso antes de fechar/recarregar se há alteração local não enviada à nuvem */
+    window.addEventListener("beforeunload", function (e) {
+      if (Nuvem && Nuvem.pendente && Nuvem.pendente()) {
+        e.preventDefault();
+        e.returnValue = "Há alterações ainda não sincronizadas com a nuvem. Fechar agora pode perdê-las.";
+        return e.returnValue;
+      }
+    });
   }
 
   if (document.readyState === "loading") {

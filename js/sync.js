@@ -260,7 +260,14 @@ var Nuvem = (function () {
         if (Store.versaoLocal() !== versaoEmpurrada) agendarEmpurrar();
       });
       document.addEventListener("visibilitychange", function () {
-        if (!document.hidden && ativa && automatica) puxar();
+        if (document.hidden) {
+          /* o app foi para segundo plano/fechou: manda o que ainda não subiu
+             ANTES de o sistema possivelmente encerrar a página (celular!) */
+          if (ativa && automatica && Store.versaoLocal() !== versaoEmpurrada) sincronizarAgora();
+        } else if (ativa && automatica) puxar();
+      });
+      window.addEventListener("pagehide", function () {
+        if (ativa && automatica && Store.versaoLocal() !== versaoEmpurrada) sincronizarAgora();
       });
       window.addEventListener("online", function () { if (ativa) puxar(); });
     }
@@ -282,6 +289,10 @@ var Nuvem = (function () {
     verificarSenha: verificarSenha,
     status: status,
     recarregar: function () { return lerConfig(); },
+    /* true = ainda existe alteração local que NÃO chegou à nuvem
+       (usado pelo painel para avisar antes de fechar) */
+    pendente: function () { return ativa && Store.versaoLocal() !== versaoEmpurrada; },
+    versaoNuvem: function () { return versaoEmpurrada; },
     onChange: function (cb) { ouvintes.push(cb); }
   };
 })();
