@@ -387,11 +387,16 @@ var Store = (function () {
         }
         if (idx === -1) { d[grupo].push(rem); mudou = true; return; }
         if (tsRem > String(d[grupo][idx].atualizadoEm || "")) {
-          /* a nuvem nunca envia foto colada (manda ""): preserva a foto local */
-          if (rem.foto === "" && d[grupo][idx] && d[grupo][idx].foto) {
+          /* a nuvem não envia foto colada (manda "" ou omite): preserva a foto local
+             se for arquivo/URL válida (não data:). Regra: NUNCA perde foto real. */
+          var fotoLocal = d[grupo][idx] && d[grupo][idx].foto;
+          var fotoRemota = rem && rem.foto;
+          var fotoLocalValida = fotoLocal && !/^data:/i.test(String(fotoLocal));
+          var fotoRemotaVazia = !fotoRemota || String(fotoRemota).trim() === "";
+          if (fotoRemotaVazia && fotoLocalValida) {
             var clone = {};
             for (var k in rem) if (Object.prototype.hasOwnProperty.call(rem, k)) clone[k] = rem[k];
-            clone.foto = d[grupo][idx].foto;
+            clone.foto = fotoLocal;
             rem = clone;
           }
           d[grupo][idx] = rem;
