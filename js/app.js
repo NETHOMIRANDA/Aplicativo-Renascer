@@ -224,6 +224,17 @@
         alterarQtd(id, btn.getAttribute("data-act") === "mais" ? 1 : -1);
       });
     });
+    // foto principal: toque amplia a foto em tela cheia (lightbox)
+    Array.prototype.forEach.call(el.querySelectorAll(".foto-principal"), function (img) {
+      img.style.cursor = "zoom-in";
+      img.addEventListener("click", function (ev) {
+        if (ev.stopPropagation) ev.stopPropagation();
+        var src = img.getAttribute("src") || "";
+        if (!src || src.indexOf("data:image/svg") === 0) return;
+        abrirFoto(src, img.getAttribute("alt") || "");
+        vibrar([10]);
+      });
+    });
     // miniaturas: cliente escolhe a foto (variante) do item
     Array.prototype.forEach.call(el.querySelectorAll(".mini-fotos figure.mini"), function (m) {
       m.addEventListener("click", function (ev) {
@@ -1205,6 +1216,20 @@
     }
   }
 
+  /* ---------------- lightbox de foto (catálogo) ---------------- */
+  function abrirFoto(src, alt) {
+    var img = $("lightboxImg");
+    if (img) { img.src = src; img.alt = alt || "Foto ampliada do item"; }
+    var ov = $("ovFoto");
+    if (ov) { ov.hidden = false; document.body.classList.add("sem-rollo"); }
+  }
+  function fecharFoto() {
+    var ov = $("ovFoto");
+    if (ov) { ov.hidden = true; document.body.classList.remove("sem-rollo"); }
+    var img = $("lightboxImg");
+    if (img) img.src = "";
+  }
+
   /* ---------------- overlays ---------------- */
   function abrir(id) {
     var el = $(id);
@@ -1327,10 +1352,25 @@
     Array.prototype.forEach.call(document.querySelectorAll(".overlay"), function (ov) {
       ov.addEventListener("click", function (e) {
         if (e.target === ov) {
+          if (ov.id === "ovFoto") { fecharFoto(); return; }
           fechar(ov.id);
           aoFecharOverlay(ov.id);
         }
       });
+    });
+
+    var btnFecharFoto = $("btnFecharFoto");
+    if (btnFecharFoto) {
+      btnFecharFoto.addEventListener("click", function (e) {
+        if (e.stopPropagation) e.stopPropagation();
+        fecharFoto();
+      });
+    }
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" || e.key === "Esc") {
+        var ov = $("ovFoto");
+        if (ov && !ov.hidden) fecharFoto();
+      }
     });
 
     // acesso discreto: pontinho no rodape

@@ -1197,6 +1197,53 @@ canvas.qr {
   margin-bottom: 14px;
 }
 
+/* ================= LIGHTBOX DE FOTO (catálogo) ================= */
+.lightbox {
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 6, 23, 0.92);
+  z-index: 90;
+}
+.lightbox-img {
+  max-width: 92vw;
+  max-height: 86vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 10px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+  animation: lightbox-zoom 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+@keyframes lightbox-zoom {
+  from { transform: scale(0.86); opacity: 0.4; }
+  to   { transform: scale(1); opacity: 1; }
+}
+.lightbox-fechar {
+  position: fixed;
+  top: max(14px, env(safe-area-inset-top));
+  right: 14px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, transform 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.lightbox-fechar:hover { background: rgba(255, 255, 255, 0.32); }
+.lightbox-fechar:active { transform: scale(0.92); }
+.lightbox .fechar { display: none; }
+
 .sheet-corpo input, .sheet-corpo textarea, .sheet-corpo select {
   display: block;
   width: 100%;
