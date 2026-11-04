@@ -191,6 +191,19 @@
 <!-- ================= TOAST ================= -->
 <div class="toast" id="toast" hidden></div>
 
+<!-- ================= OVERLAY: AMPLIAR FOTO DO ITEM ================= -->
+<div class="overlay lightbox" id="ovFoto" hidden>
+  <button class="lightbox-fechar" id="btnFecharFoto" aria-label="Fechar foto ampliada">✕</button>
+  <div class="lightbox-conteudo" id="lightboxConteudo">
+    <img class="lightbox-img" id="lightboxImg" src="" alt="Foto ampliada do item">
+    <div class="lightbox-nome" id="lightboxNome"></div>
+    <div class="lightbox-variantes" id="lightboxVariantes" hidden>
+      <div class="lightbox-strip" id="lightboxStrip"></div>
+      <p class="lightbox-dica">Arraste para ver as opções • toque para escolher a cor</p>
+    </div>
+  </div>
+</div>
+
 <script src="js/catalogo-seed.js"></script>
 <script src="js/fotos-seed.js"></script>
 <script src="js/fotos-itens.js"></script>

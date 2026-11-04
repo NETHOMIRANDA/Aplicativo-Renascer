@@ -178,9 +178,9 @@
       var foto = fotoUrl(i.foto) || imgPlaceholder();
       var estoqueNum = Number(i.estoque) || 0;
       var temNoCarrinho = qtd > 0;
-      var extras = (i.fotos && i.fotos.length > 1) ? i.fotos.map(function (f) {
+      var extras = (i.fotos && i.fotos.length) ? i.fotos.map(function (f) {
         return typeof f === "string" ? { foto: f, cor: "" } : { foto: f.foto || "", cor: f.cor || "" };
-      }) : [];
+      }).filter(function (v) { return !!v.foto; }) : [];
       var fotoEsc = selFoto[i.id] || "";
       var fotoPrincipal = (fotoEsc ? fotoUrl(fotoEsc) : foto) || imgPlaceholder();
       var atual = fotoEsc || i.foto || "";
@@ -189,13 +189,7 @@
           '<div class="card-foto">' +
             '<img class="foto-principal" data-id="' + i.id + '" src="' + esc(fotoPrincipal) + '" alt="' + esc(i.nome) + '" loading="lazy" onerror="this.src=\'' + imgPlaceholder() + '\'">' +
             (temNoCarrinho ? '<span class="card-qtd-badge">' + qtd + ' no carrinho</span>' : '') +
-            (extras.length ? '<div class="mini-fotos">' + extras.map(function (v) {
-              var sel = String(fotoUrl(v.foto)) === String(fotoUrl(atual));
-              return '<figure class="mini' + (sel ? " sel" : "") + '" data-id="' + i.id + '" data-foto="' + esc(v.foto) + '" data-cor="' + esc(v.cor) + '">' +
-                '<img src="' + esc(fotoUrl(v.foto)) + '" loading="lazy" onerror="this.style.visibility=\'hidden\'">' +
-                (v.cor ? "<figcaption>" + esc(v.cor) + "</figcaption>" : "") +
-              "</figure>";
-            }).join("") + "</div>" : "") +
+            (extras.length ? '<div class="variantes-hint">📷 ' + extras.length + ' cor(es) — toque na foto para escolher</div>' : '') +
           "</div>" +
           '<div class="card-corpo">' +
             '<span class="cat">' + esc(i.categoria) + "</span>" +
@@ -224,29 +218,21 @@
         alterarQtd(id, btn.getAttribute("data-act") === "mais" ? 1 : -1);
       });
     });
-    // miniaturas: cliente escolhe a foto (variante) do item
-    Array.prototype.forEach.call(el.querySelectorAll(".mini-fotos figure.mini"), function (m) {
-      m.addEventListener("click", function (ev) {
+    // foto principal: toque amplia a foto em tela cheia (lightbox) e permite escolher variantes
+    Array.prototype.forEach.call(el.querySelectorAll(".foto-principal"), function (img) {
+      img.style.cursor = "zoom-in";
+      img.addEventListener("click", function (ev) {
         if (ev.stopPropagation) ev.stopPropagation();
-        var id = m.getAttribute("data-id");
-        var f = m.getAttribute("data-foto");
-        var cor = m.getAttribute("data-cor") || "";
-        selFoto[id] = f;
-        gravarExt();
-        var principal = el.querySelector('.foto-principal[data-id="' + id + '"]');
-        if (principal) principal.src = fotoUrl(f);
-        Array.prototype.forEach.call(el.querySelectorAll('.mini-fotos figure.mini[data-id="' + id + '"]'), function (x) { x.classList.remove("sel"); });
-        m.classList.add("sel");
-        /* a cor da variante escolhida ja preenche a observacao (o cliente pode editar) */
-        if (cor) {
-          var obs = el.querySelector('.obs-item[data-obs="' + id + '"]');
-          if (obs) obs.value = cor;
-          obsItem[id] = cor;
-          gravarExt();
-        }
-        vibrar([15]);
+        var id = img.getAttribute("data-id");
+        var it = Store.item(id);
+        if (!it) return;
+        var src = img.getAttribute("src") || "";
+        if (!src || src.indexOf("data:image/svg") === 0) return;
+        abrirLightbox(it);
+        vibrar([10]);
       });
     });
+    // (variantes agora sao escolhidas no lightbox ampliado)
     // observação do item (visível no card e no pedido)
     Array.prototype.forEach.call(el.querySelectorAll(".obs-item"), function (inp) {
       inp.addEventListener("input", function () {
@@ -1205,6 +1191,140 @@
     }
   }
 
+  /* ---------------- lightbox de foto (catálogo) ---------------- */
+  var lightboxItem = null;
+  var lightboxFotos = [];
+  var lightboxIndice = 0;
+
+  function montarFotosLightbox(item) {
+    var extras = (item.fotos || []).map(function (f) {
+      return typeof f === "string" ? { foto: f, cor: "" } : { foto: f.foto || "", cor: f.cor || "" };
+    }).filter(function (v) { return !!v.foto; });
+    var lista = [];
+    if (item.foto) lista.push({ foto: item.foto, cor: "" });
+    extras.forEach(function (e) {
+      if (lista.every(function (x) { return x.foto !== e.foto; })) lista.push(e);
+    });
+    if (!lista.length && extras.length) lista = extras.slice();
+    if (!lista.length && item.foto) lista = [{ foto: item.foto, cor: "" }];
+    return lista;
+  }
+
+  function aplicarSelecaoVariante(id, foto, cor) {
+    selFoto[id] = foto;
+    gravarExt();
+    var principal = document.querySelector('.foto-principal[data-id="' + id + '"]');
+    if (principal) principal.src = fotoUrl(foto);
+    if (cor) {
+      var obs = document.querySelector('.obs-item[data-obs="' + id + '"]');
+      if (obs) obs.value = cor;
+      obsItem[id] = cor;
+      gravarExt();
+    }
+  }
+
+  function renderLightbox() {
+    var img = $("lightboxImg");
+    if (!img || !lightboxFotos.length) return;
+    var cur = lightboxFotos[lightboxIndice];
+    img.src = fotoUrl(cur.foto);
+    img.alt = (cur.cor || (lightboxItem && lightboxItem.nome) || "Foto ampliada do item");
+    var nomeEl = $("lightboxNome");
+    if (nomeEl) nomeEl.textContent = cur.cor ? cur.cor : (lightboxItem ? lightboxItem.nome : "");
+    var wrap = $("lightboxVariantes");
+    var strip = $("lightboxStrip");
+    if (lightboxFotos.length > 1 && wrap && strip) {
+      wrap.hidden = false;
+      strip.innerHTML = lightboxFotos.map(function (f, i) {
+        return '<figure class="lb-mini' + (i === lightboxIndice ? " sel" : "") + '" data-idx="' + i + '">' +
+          '<img src="' + esc(fotoUrl(f.foto)) + '" alt="" loading="lazy" onerror="this.style.visibility=\'hidden\'">' +
+          (f.cor ? "<figcaption>" + esc(f.cor) + "</figcaption>" : "<figcaption>opção</figcaption>") +
+        "</figure>";
+      }).join("");
+      Array.prototype.forEach.call(strip.querySelectorAll("figure.lb-mini"), function (fig) {
+        fig.addEventListener("click", function (ev) {
+          if (ev.stopPropagation) ev.stopPropagation();
+          var idx = Number(fig.getAttribute("data-idx"));
+          if (isNaN(idx) || idx < 0 || idx >= lightboxFotos.length) return;
+          lightboxIndice = idx;
+          renderLightbox();
+          if (lightboxItem) aplicarSelecaoVariante(lightboxItem.id, lightboxFotos[idx].foto, lightboxFotos[idx].cor);
+          vibrar([15]);
+        });
+      });
+    } else if (wrap) {
+      wrap.hidden = true;
+      if (strip) strip.innerHTML = "";
+    }
+  }
+
+  function abrirLightbox(item) {
+    if (!item) return;
+    lightboxItem = item;
+    lightboxFotos = montarFotosLightbox(item);
+    var atual = selFoto[item.id] || item.foto || (lightboxFotos[0] && lightboxFotos[0].foto);
+    var idx = -1;
+    for (var i = 0; i < lightboxFotos.length; i++) {
+      if (lightboxFotos[i].foto === atual) { idx = i; break; }
+    }
+    lightboxIndice = idx >= 0 ? idx : 0;
+    renderLightbox();
+    var ov = $("ovFoto");
+    if (ov) { ov.hidden = false; document.body.classList.add("sem-rollo"); }
+  }
+
+  function fecharFoto() {
+    var ov = $("ovFoto");
+    if (ov) { ov.hidden = true; document.body.classList.remove("sem-rollo"); }
+    var img = $("lightboxImg");
+    if (img) img.src = "";
+    lightboxItem = null;
+    lightboxFotos = [];
+  }
+
+  /* swipe/arrastar no lightbox para trocar de variante */
+  (function () {
+    var startX = 0, startY = 0, arrastando = false;
+    function iniciar(e) {
+      var t = (e.touches && e.touches[0]) ? e.touches[0] : e;
+      startX = t.clientX; startY = t.clientY; arrastando = true;
+    }
+    function terminar(e) {
+      if (!arrastando) return;
+      arrastando = false;
+      var t = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0] : e;
+      var dx = t.clientX - startX;
+      var dy = t.clientY - startY;
+      if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
+      if (!lightboxFotos || lightboxFotos.length < 2) return;
+      if (dx < 0) lightboxIndice = (lightboxIndice + 1) % lightboxFotos.length;
+      else lightboxIndice = (lightboxIndice - 1 + lightboxFotos.length) % lightboxFotos.length;
+      renderLightbox();
+      if (lightboxItem) aplicarSelecaoVariante(lightboxItem.id, lightboxFotos[lightboxIndice].foto, lightboxFotos[lightboxIndice].cor);
+      vibrar([12]);
+    }
+    document.addEventListener("touchstart", function (e) {
+      var ov = $("ovFoto");
+      if (!ov || ov.hidden) return;
+      if (e.target && e.target.id === "lightboxImg") iniciar(e);
+    }, { passive: true });
+    document.addEventListener("touchend", function (e) {
+      var ov = $("ovFoto");
+      if (!ov || ov.hidden) return;
+      terminar(e);
+    }, { passive: true });
+    document.addEventListener("mousedown", function (e) {
+      var ov = $("ovFoto");
+      if (!ov || ov.hidden) return;
+      if (e.target && e.target.id === "lightboxImg") iniciar(e);
+    });
+    document.addEventListener("mouseup", function (e) {
+      var ov = $("ovFoto");
+      if (!ov || ov.hidden) return;
+      terminar(e);
+    });
+  })();
+
   /* ---------------- overlays ---------------- */
   function abrir(id) {
     var el = $(id);
@@ -1327,10 +1447,27 @@
     Array.prototype.forEach.call(document.querySelectorAll(".overlay"), function (ov) {
       ov.addEventListener("click", function (e) {
         if (e.target === ov) {
+          if (ov.id === "ovFoto") { fecharFoto(); return; }
           fechar(ov.id);
           aoFecharOverlay(ov.id);
         }
       });
+    });
+
+    // botão de fechar da foto ampliada
+    var btnFecharFoto = $("btnFecharFoto");
+    if (btnFecharFoto) {
+      btnFecharFoto.addEventListener("click", function (e) {
+        if (e.stopPropagation) e.stopPropagation();
+        fecharFoto();
+      });
+    }
+    // fechar com tecla ESC
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" || e.key === "Esc") {
+        var ov = $("ovFoto");
+        if (ov && !ov.hidden) fecharFoto();
+      }
     });
 
     // acesso discreto: pontinho no rodape
